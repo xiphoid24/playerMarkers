@@ -1,5 +1,6 @@
 # Player Markers
 Generate player markers with go for Mapcrafter
+[ExMaple](https://gregpechiro.github.io/playerMarkers/#exmaple3d/0/6/-263/115/64)
 
 This is designed to generate player markers for a Mapcrafter map. It uses the world/playerdata/ to find the last known location of the players.
 
