@@ -39,10 +39,10 @@ Added player-markers.js under markers.js
 This is a simple json config file to tell the program where to find your world and where to same the generated js file.
 
 **api-url** *string*      rest API endpoint to get usernames from UUIDs. 
-This should be left ommited unless you are modifying the go source code
+This should be ommited unless you are modifying the go source code
 
 **skin-url** *string*     rest API url to download skins.
-This should be left omitted unless you are modifying the go source code
+This should be omitted unless you are modifying the go source code
 
 **js-path** *string*      full path including file name of where the final js file should be saved
 
