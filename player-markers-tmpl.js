@@ -16,7 +16,7 @@ var PLAYER_MARKERS = [
             // ...in the world "the_end"
             "the_end" : [
                 {{ range $user := . }}
-                {{ if eq $user.Dimension 1 }}
+                {{ if eq $user.Dimension 1 }} // 1 == the end
                 // example marker, pretty format:
                 {
                     // position ([x, z, y])

@@ -155,6 +155,7 @@ type User struct {
 	Dimension int
 	Uuid      string
 	Username  string
+	ModTime   int64
 }
 
 type MinecraftProfile struct {
@@ -167,6 +168,10 @@ func NewUser(path string) (*User, error) {
 	user.Uuid = strings.Replace(strings.TrimSuffix(filename, filepath.Ext(filename)), "-", "", -1)
 
 	if err := user.SetLocation(path); err != nil {
+		return nil, err
+	}
+
+	if err := user.SetModTime(path); err != nil {
 		return nil, err
 	}
 
@@ -231,6 +236,15 @@ func (u *User) SetLocation(path string) error {
 	u.Y = int(y.Float64)
 	u.Z = int(z.Float64)
 
+	return nil
+}
+
+func (u *User) SetModTime(path string) error {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	u.ModTime = fi.ModTime().Unix()
 	return nil
 }
 
