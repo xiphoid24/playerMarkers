@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/minero/minero/proto/nbt"
 )
@@ -42,6 +43,7 @@ func init() {
 
 	var config Config
 	if err := json.Unmarshal(b, &config); err != nil {
+		fmt.Println(err)
 		log.Println("Could not parse config file. Using defaults")
 		return
 	}
@@ -156,6 +158,7 @@ type User struct {
 	Uuid      string
 	Username  string
 	ModTime   int64
+	DifTime   int64
 }
 
 type MinecraftProfile struct {
@@ -171,7 +174,7 @@ func NewUser(path string) (*User, error) {
 		return nil, err
 	}
 
-	if err := user.SetModTime(path); err != nil {
+	if err := user.SetTime(path); err != nil {
 		return nil, err
 	}
 
@@ -239,12 +242,13 @@ func (u *User) SetLocation(path string) error {
 	return nil
 }
 
-func (u *User) SetModTime(path string) error {
+func (u *User) SetTime(path string) error {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
 	u.ModTime = fi.ModTime().Unix()
+	u.DifTime = time.Now().Unix() - u.ModTime
 	return nil
 }
 
