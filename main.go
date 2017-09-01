@@ -26,8 +26,8 @@ var (
 	JSTMPLPATH          = "player-markers-tmpl.js"
 	DATDIRS             = []string{"world/playerdata/"}
 	PLAYERTIMEOUT int64 = 0
-	CACHETIME     int64 = 24
-	CACHEDIR            = "./cache/"
+	CACHETIME     int64 = 24 * 60 * 60
+	CACHEDIR            = ".player-marker-cache/"
 	NOW                 = time.Now().Unix()
 	OLDPLAYER           = errors.New("OLD PLAYER")
 )
@@ -48,7 +48,8 @@ func init() {
 
 	var config Config
 	if err := json.Unmarshal(b, &config); err != nil {
-		log.Println("Could not parse config file. Using defaults")
+		log.Printf("Could not parse config file. Using defaults\n\n")
+		fmt.Printf("\n%v\n", err)
 		return
 	}
 
@@ -77,10 +78,15 @@ func init() {
 		PLAYERTIMEOUT = config.PLAYERTIMEOUT
 	}
 	if config.CACHETIME > -1 {
-		CACHETIME = config.CACHETIME
+		CACHETIME = config.CACHETIME * 60 * 60
 	}
 	if config.CACHEDIR != "" {
 		CACHEDIR = config.CACHEDIR
+	}
+	if CACHETIME > 0 {
+		if err := os.MkdirAll(CACHEDIR, 0755); err != nil {
+			log.Fatalf("\nError creating cache directory %s\nmain.go >> init() >> os.MkDirAll() >> %v\n", CACHEDIR, err)
+		}
 	}
 }
 
@@ -169,18 +175,6 @@ func main() {
 
 }
 
-/*func CreatePlayer(path string, players chan *Player) {
-
-	player, err := NewPlayer(path)
-	if err != nil {
-		log.Printf("error creating new player from %s\nmain.go >> NewPlayer() >> %v\n", path, err)
-		return
-	}
-
-	players <- player
-
-}*/
-
 type Config struct {
 	APIURL        string   `json:"api-url, omitempty"`
 	SKINURL       string   `json:"skin-url, omitempty"`
@@ -201,6 +195,7 @@ type Player struct {
 	Uuid      string
 	Username  string
 	ModTime   int64
+	DifTime   int64
 }
 
 type MinecraftProfile struct {
@@ -221,20 +216,17 @@ func NewPlayer(path string) (*Player, error) {
 	player := &Player{}
 	filename := filepath.Base(path)
 	player.Uuid = strings.Replace(strings.TrimSuffix(filename, filepath.Ext(filename)), "-", "", -1)
+	player.ModTime = fs.ModTime().Unix()
+	player.DifTime = NOW - fs.ModTime().Unix()
 
 	if err := player.SetLocation(path); err != nil {
 		return nil, err
 	}
-
-	if err := player.SetModTime(path); err != nil {
-		return nil, err
-	}
-
 	if err := player.SetUsername(); err != nil {
 		return nil, err
 	}
 
-	if err := player.GetSkin(); err != nil {
+	if err := GetSkin(player.Uuid); err != nil {
 		return nil, err
 	}
 
@@ -294,38 +286,84 @@ func (p *Player) SetLocation(path string) error {
 	return nil
 }
 
-func (p *Player) SetModTime(path string) error {
-	fi, err := os.Stat(path)
+func (p *Player) SetUsername() error {
+
+	fs, err := os.Stat(CACHEDIR + p.Uuid + ".txt")
 	if err != nil {
-		return err
+		username, err := RequestUsername(p.Uuid)
+		if err != nil {
+			return err
+		}
+		p.Username = username
+		return nil
 	}
-	p.ModTime = fi.ModTime().Unix()
+
+	if NOW-fs.ModTime().Unix() > CACHETIME {
+		username, err := RequestUsername(p.Uuid)
+		if err != nil {
+			return err
+		}
+		p.Username = username
+		return nil
+	}
+
+	b, err := ioutil.ReadFile(CACHEDIR + p.Uuid + ".txt")
+	if err != nil {
+		username, err := RequestUsername(p.Uuid)
+		if err != nil {
+			return err
+		}
+		p.Username = username
+		return nil
+	}
+	p.Username = strings.Replace(string(b), "\n", "", -1)
 	return nil
 }
 
-func (p *Player) SetUsername() error {
-	resp, err := http.Get(fmt.Sprintf(APIURL, p.Uuid))
+func RequestUsername(uuid string) (string, error) {
+	resp, err := http.Get(fmt.Sprintf(APIURL, uuid))
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var mp MinecraftProfile
 	if err := json.Unmarshal(body, &mp); err != nil {
-		return err
+		return "", err
 	}
 
-	p.Username = mp.Name
+	if CACHETIME > 0 {
+		ioutil.WriteFile(CACHEDIR+uuid+".txt", []byte(mp.Name), 0666)
+	}
 
+	return mp.Name, nil
+}
+
+func GetSkin(uuid string) error {
+
+	fs, err := os.Stat(SKINDIR + uuid + ".png")
+	if err != nil {
+		if err := RequestSkin(uuid); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if NOW-fs.ModTime().Unix() > CACHETIME {
+		if err := RequestSkin(uuid); err != nil {
+			return err
+		}
+		return nil
+	}
 	return nil
 }
 
-func (p *Player) GetSkin() error {
-	resp, err := http.Get(fmt.Sprintf(SKINURL, p.Uuid))
+func RequestSkin(uuid string) error {
+	resp, err := http.Get(fmt.Sprintf(SKINURL, uuid))
 	if err != nil {
 		return err
 	}
@@ -336,9 +374,10 @@ func (p *Player) GetSkin() error {
 		return err
 	}
 
-	if err := ioutil.WriteFile(SKINDIR+p.Uuid+".png", body, 0666); err != nil {
+	if err := ioutil.WriteFile(SKINDIR+uuid+".png", body, 0666); err != nil {
 		return err
 	}
 
 	return nil
+
 }
