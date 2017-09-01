@@ -14,41 +14,44 @@ var PLAYER_MARKERS = [
         // markers of this marker group...
         "markers" : {
             // ...in the world "the_end"
-            "the_end" : [
-                {{ range $user := . }}
-                {{ if eq $user.Dimension 1 }} // 1 == the end
-                // example marker, pretty format:
+            "end" : [{{ range $player := .endPlayers }}
                 {
                     // position ([x, z, y])
-                    "pos" : [{{ $user.X }}, {{ $user.Z }}, {{ $user.Y }}],
+                    "pos" : [{{ $player.X }}, {{ $player.Z }}, {{ $player.Y }}],
                     // title when you hover over the marker
-                    "title" :"{{ $user.Username }}",
+                    "title" :"{{ $player.Username }}",
                     // text in the marker popup window
-                    "text" : '<div style="text-align: center;">{{ $user.Username }}</div><br><b>Location:</b> X: {{ $user.X }}, Y: {{ $user.Y }}, Z: {{ $user.Z }}',
+                    "text" : '<div style="text-align: center;">{{ $player.Username }}</div><br><b>Location:</b> X: {{ $player.X }}, Y: {{ $player.Y }}, Z: {{ $player.Z }}',
                     // override the icon of a single marker (optional)
-                    "icon" : "{{ $user.Uuid }}.png",
+                    "icon" : "{{ $player.Uuid }}.png",
                 },
-                {{ end }}
-                {{ end }}
-            ],
-            // ...in the world "the_end"
-            "myworld" : [
-                {{ range $user := . }}
-                {{ if ne $user.Dimension 1 }}
-                // example marker, pretty format:
+            {{ end }}],
+            // ...in the world "nether"
+            "nether" : [{{ range $player := .netherPlayers }}
                 {
                     // position ([x, z, y])
-                    "pos" : [{{ $user.X }}, {{ $user.Z }}, {{ $user.Y }}],
+                    "pos" : [{{ $player.X }}, {{ $player.Z }}, {{ $player.Y }}],
                     // title when you hover over the marker
-                    "title" :"{{ $user.Username }}",
+                    "title" :"{{ $player.Username }}",
                     // text in the marker popup window
-                    "text" : '<div style="text-align: center;">{{ $user.Username }}</div><br><b>Location:</b> X: {{ $user.X }}, Y: {{ $user.Y }}, Z: {{ $user.Z }}',
+                    "text" : '<div style="text-align: center;">{{ $player.Username }}</div><br><b>Location:</b> X: {{ $player.X }}, Y: {{ $player.Y }}, Z: {{ $player.Z }}',
                     // override the icon of a single marker (optional)
-                    "icon" : "{{ $user.Uuid }}.png",
+                    "icon" : "{{ $player.Uuid }}.png",
                 },
-                {{ end }}
-                {{ end }}
-            ],
+            {{ end }}],
+            // ...in the world "overworld"
+            "test" : [{{ range $player := .overworldPlayers }}
+                {
+                    // position ([x, z, y])
+                    "pos" : [{{ $player.X }}, {{ $player.Z }}, {{ $player.Y }}],
+                    // title when you hover over the marker
+                    "title" :"{{ $player.Username }}",
+                    // text in the marker popup window
+                    "text" : '<div style="text-align: center;">{{ $player.Username }}</div><br><b>Location:</b> X: {{ $player.X }}, Y: {{ $player.Y }}, Z: {{ $player.Z }}',
+                    // override the icon of a single marker (optional)
+                    "icon" : "{{ $player.Uuid }}.png",
+                },
+            {{ end }}],
         },
     },
 ];

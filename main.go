@@ -54,6 +54,9 @@ func init() {
 	}
 	if config.SKINDIR != "" {
 		SKINDIR = config.SKINDIR
+		if SKINDIR[len(SKINDIR)-1] != '/' {
+			SKINDIR += "/"
+		}
 	}
 	if config.JSPATH != "" {
 		JSPATH = config.JSPATH
@@ -81,10 +84,14 @@ func main() {
 		log.Fatalf("error creating js file %s\nmain.go >> os.Create() >> %v\n", JSPATH, err)
 	}
 
-	userC, errC := make(chan *User), make(chan error)
+	playerC, errC := make(chan *Player), make(chan error)
 	i := 0
 
 	for _, DATDIR := range DATDIRS {
+
+		if DATDIR[len(DATDIR)-1] != '/' {
+			DATDIR += "/"
+		}
 
 		files, err := ioutil.ReadDir(DATDIR)
 		if err != nil {
@@ -100,42 +107,56 @@ func main() {
 			path := DATDIR + fi.Name()
 
 			go func() {
-				user, err := NewUser(path)
+				player, err := NewPlayer(path)
 				if err != nil {
-					errC <- fmt.Errorf("error creating new user from %s\nmain.go >> NewUser() >> %v\n", path, err)
+					errC <- fmt.Errorf("error creating new player from %s\nmain.go >> NewPlayer() >> %v\n", path, err)
+				} else {
+					playerC <- player
 				}
-				userC <- user
 			}()
 			i++
 		}
 	}
 
-	var users []*User
+	var overworldPlayers []*Player
+	var netherPlayers []*Player
+	var endPlayers []*Player
 
 	for j := 0; j < i; j++ {
 		select {
-		case user := <-userC:
-			users = append(users, user)
+		case player := <-playerC:
+			switch player.Dimension {
+			case -1:
+				netherPlayers = append(netherPlayers, player)
+			case 1:
+				endPlayers = append(endPlayers, player)
+			default:
+				overworldPlayers = append(overworldPlayers, player)
+			}
 		case err := <-errC:
 			log.Println(err)
 		}
 	}
 
-	if err := tmpl.Execute(jsFile, users); err != nil {
+	if err := tmpl.Execute(jsFile, map[string]interface{}{
+		"overworldPlayers": overworldPlayers,
+		"endPlayers":       endPlayers,
+		"netherPlayers":    netherPlayers,
+	}); err != nil {
 		log.Fatalf("error generating jsFile\nmain.go >> tmpl.Execute() >> %v\n", err)
 	}
 
 }
 
-func CreateUser(path string, users chan *User) {
+func CreatePlayer(path string, players chan *Player) {
 
-	user, err := NewUser(path)
+	player, err := NewPlayer(path)
 	if err != nil {
-		log.Printf("error creating new user from %s\nmain.go >> NewUser() >> %v\n", path, err)
+		log.Printf("error creating new player from %s\nmain.go >> NewPlayer() >> %v\n", path, err)
 		return
 	}
 
-	users <- user
+	players <- player
 
 }
 
@@ -148,7 +169,7 @@ type Config struct {
 	DATDIRS    []string `json:"dat-dirs, omitempty"`
 }
 
-type User struct {
+type Player struct {
 	X         int
 	Y         int
 	Z         int
@@ -162,31 +183,31 @@ type MinecraftProfile struct {
 	Name string `json:"name"`
 }
 
-func NewUser(path string) (*User, error) {
-	user := &User{}
+func NewPlayer(path string) (*Player, error) {
+	player := &Player{}
 	filename := filepath.Base(path)
-	user.Uuid = strings.Replace(strings.TrimSuffix(filename, filepath.Ext(filename)), "-", "", -1)
+	player.Uuid = strings.Replace(strings.TrimSuffix(filename, filepath.Ext(filename)), "-", "", -1)
 
-	if err := user.SetLocation(path); err != nil {
+	if err := player.SetLocation(path); err != nil {
 		return nil, err
 	}
 
-	if err := user.SetModTime(path); err != nil {
+	if err := player.SetModTime(path); err != nil {
 		return nil, err
 	}
 
-	if err := user.SetUsername(); err != nil {
+	if err := player.SetUsername(); err != nil {
 		return nil, err
 	}
 
-	if err := user.GetSkin(); err != nil {
+	if err := player.GetSkin(); err != nil {
 		return nil, err
 	}
 
-	return user, nil
+	return player, nil
 }
 
-func (u *User) SetLocation(path string) error {
+func (p *Player) SetLocation(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
 		log.Fatalln(err)
@@ -206,13 +227,13 @@ func (u *User) SetLocation(path string) error {
 
 	i := c.Value["Dimension"].(*nbt.Int32)
 
-	u.Dimension = int(i.Int32)
+	p.Dimension = int(i.Int32)
 
-	p, ok := c.Value["Pos"].(*nbt.List)
+	ps, ok := c.Value["Pos"].(*nbt.List)
 	if !ok {
 		return err
 	}
-	pos := p.Value
+	pos := ps.Value
 	if len(pos) != 3 {
 		return fmt.Errorf("pos wrong length. expected 3 got %d", len(pos))
 	}
@@ -232,24 +253,24 @@ func (u *User) SetLocation(path string) error {
 		return errors.New("Invalid \"z\" type")
 	}
 
-	u.X = int(x.Float64)
-	u.Y = int(y.Float64)
-	u.Z = int(z.Float64)
+	p.X = int(x.Float64)
+	p.Y = int(y.Float64)
+	p.Z = int(z.Float64)
 
 	return nil
 }
 
-func (u *User) SetModTime(path string) error {
+func (p *Player) SetModTime(path string) error {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
-	u.ModTime = fi.ModTime().Unix()
+	p.ModTime = fi.ModTime().Unix()
 	return nil
 }
 
-func (u *User) SetUsername() error {
-	resp, err := http.Get(APIURL + u.Uuid)
+func (p *Player) SetUsername() error {
+	resp, err := http.Get(APIURL + p.Uuid)
 	if err != nil {
 		return err
 	}
@@ -259,18 +280,18 @@ func (u *User) SetUsername() error {
 		return err
 	}
 
-	var p MinecraftProfile
-	if err := json.Unmarshal(body, &p); err != nil {
+	var mp MinecraftProfile
+	if err := json.Unmarshal(body, &mp); err != nil {
 		return err
 	}
 
-	u.Username = p.Name
+	p.Username = mp.Name
 
 	return nil
 }
 
-func (u *User) GetSkin() error {
-	resp, err := http.Get(SKINURL + u.Uuid)
+func (p *Player) GetSkin() error {
+	resp, err := http.Get(SKINURL + p.Uuid)
 	if err != nil {
 		return err
 	}
@@ -281,7 +302,7 @@ func (u *User) GetSkin() error {
 		return err
 	}
 
-	if err := ioutil.WriteFile(SKINDIR+u.Uuid+".png", body, 0666); err != nil {
+	if err := ioutil.WriteFile(SKINDIR+p.Uuid+".png", body, 0666); err != nil {
 		return err
 	}
 
