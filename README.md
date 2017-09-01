@@ -48,7 +48,13 @@ This should be omitted unless you are modifying the go source code
 
 **js-tmpl-path** *string* full path of where the js template is located. NOTE: this should be valid go template syntax
 
-**dat-dirs** *string array* each element of the array should be a full path to a playerdata directory inside a worldyou want to render markers for
+**dat-dirs** *string array* each element of the array should be a full path to a playerdata directory inside a world you want to render markers for
+
+**player-timeout** *number* the number of seconds since a player was last seen in order to generate their marker. Omitting or setting to 0 will disable this and generate markers for all players
+
+**cache-time** *number* the number of hours a username and skin should be cached for. Omitting or setting to 0 will disable this. 24 hours is recomended
+
+**cache-dir** *string* full path of where the username cache is saved. The default if omited is `.player-marker-cache/` in the directory where it is run
 
 #### Example
 ```json
@@ -61,6 +67,9 @@ This should be omitted unless you are modifying the go source code
     "dat-dirs": [
         "/home/user/world/playerdata/",
         "/home/user/world_the_end/playerdata/"
-    ]
+    ],
+    "player-timeout": 900,
+    "cache-time": 24,
+    "cache-dir": "/home/user/.marker-cache/"
 }
 ```
