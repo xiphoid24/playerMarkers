@@ -82,6 +82,9 @@ func init() {
 	}
 	if config.CACHEDIR != "" {
 		CACHEDIR = config.CACHEDIR
+		if CACHEDIR[len(CACHEDIR)-1] != '/' {
+			CACHEDIR += "/"
+		}
 	}
 	if CACHETIME > 0 {
 		if err := os.MkdirAll(CACHEDIR, 0755); err != nil {
