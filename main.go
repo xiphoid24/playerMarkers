@@ -13,17 +13,23 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/minero/minero/proto/nbt"
 )
 
 var (
-	APIURL     = "https://sessionserver.mojang.com/session/minecraft/profile/"
-	SKINURL    = "https://visage.surgeplay.com/frontfull/50/"
-	SKINDIR    = "minecraft-map/static/markers/"
-	JSPATH     = "minecraft-map/player-markers.js"
-	JSTMPLPATH = "player-markers-tmpl.js"
-	DATDIRS    = []string{"world/playerdata/"}
+	APIURL              = "https://sessionserver.mojang.com/session/minecraft/profile/%s"
+	SKINURL             = "https://visage.surgeplay.com/frontfull/50/%s"
+	SKINDIR             = "minecraft-map/static/markers/"
+	JSPATH              = "minecraft-map/player-markers.js"
+	JSTMPLPATH          = "player-markers-tmpl.js"
+	DATDIRS             = []string{"world/playerdata/"}
+	PLAYERTIMEOUT int64 = 0
+	CACHETIME     int64 = 24
+	CACHEDIR            = "./cache/"
+	NOW                 = time.Now().Unix()
+	OLDPLAYER           = errors.New("OLD PLAYER")
 )
 
 func init() {
@@ -67,6 +73,15 @@ func init() {
 	if config.DATDIRS != nil && len(config.DATDIRS) > 0 {
 		DATDIRS = config.DATDIRS
 	}
+	if config.PLAYERTIMEOUT > 0 {
+		PLAYERTIMEOUT = config.PLAYERTIMEOUT
+	}
+	if config.CACHETIME > -1 {
+		CACHETIME = config.CACHETIME
+	}
+	if config.CACHEDIR != "" {
+		CACHEDIR = config.CACHEDIR
+	}
 }
 
 func main() {
@@ -109,7 +124,11 @@ func main() {
 			go func() {
 				player, err := NewPlayer(path)
 				if err != nil {
-					errC <- fmt.Errorf("error creating new player from %s\nmain.go >> NewPlayer() >> %v\n", path, err)
+					if err == OLDPLAYER {
+						errC <- err
+					} else {
+						errC <- fmt.Errorf("error creating new player from %s\nmain.go >> NewPlayer() >> %v\n", path, err)
+					}
 				} else {
 					playerC <- player
 				}
@@ -134,7 +153,9 @@ func main() {
 				overworldPlayers = append(overworldPlayers, player)
 			}
 		case err := <-errC:
-			log.Println(err)
+			if err != OLDPLAYER {
+				log.Println(err)
+			}
 		}
 	}
 
@@ -148,7 +169,7 @@ func main() {
 
 }
 
-func CreatePlayer(path string, players chan *Player) {
+/*func CreatePlayer(path string, players chan *Player) {
 
 	player, err := NewPlayer(path)
 	if err != nil {
@@ -158,15 +179,18 @@ func CreatePlayer(path string, players chan *Player) {
 
 	players <- player
 
-}
+}*/
 
 type Config struct {
-	APIURL     string   `json:"api-url, omitempty"`
-	SKINURL    string   `json:"skin-url, omitempty"`
-	SKINDIR    string   `json:"skin-dir, omitempty"`
-	JSPATH     string   `json:"js-path, omitempty"`
-	JSTMPLPATH string   `json:"js-tmpl-path,omitempty"`
-	DATDIRS    []string `json:"dat-dirs, omitempty"`
+	APIURL        string   `json:"api-url, omitempty"`
+	SKINURL       string   `json:"skin-url, omitempty"`
+	SKINDIR       string   `json:"skin-dir, omitempty"`
+	JSPATH        string   `json:"js-path, omitempty"`
+	JSTMPLPATH    string   `json:"js-tmpl-path, omitempty"`
+	DATDIRS       []string `json:"dat-dirs, omitempty"`
+	PLAYERTIMEOUT int64    `json:"player-timeout, omitempty"`
+	CACHETIME     int64    `json:"cache-time, omitempty"`
+	CACHEDIR      string   `json:"cache-dir, omitempty"`
 }
 
 type Player struct {
@@ -184,6 +208,16 @@ type MinecraftProfile struct {
 }
 
 func NewPlayer(path string) (*Player, error) {
+
+	fs, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if PLAYERTIMEOUT > 0 && NOW-fs.ModTime().Unix() > PLAYERTIMEOUT {
+		return nil, OLDPLAYER
+	}
+
 	player := &Player{}
 	filename := filepath.Base(path)
 	player.Uuid = strings.Replace(strings.TrimSuffix(filename, filepath.Ext(filename)), "-", "", -1)
@@ -270,7 +304,7 @@ func (p *Player) SetModTime(path string) error {
 }
 
 func (p *Player) SetUsername() error {
-	resp, err := http.Get(APIURL + p.Uuid)
+	resp, err := http.Get(fmt.Sprintf(APIURL, p.Uuid))
 	if err != nil {
 		return err
 	}
@@ -291,7 +325,7 @@ func (p *Player) SetUsername() error {
 }
 
 func (p *Player) GetSkin() error {
-	resp, err := http.Get(SKINURL + p.Uuid)
+	resp, err := http.Get(fmt.Sprintf(SKINURL, p.Uuid))
 	if err != nil {
 		return err
 	}
