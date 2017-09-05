@@ -1,6 +1,6 @@
 {
-    "api-url": "https://sessionserver.mojang.com/session/minecraft/profile/",
-    "skin-url": "https://visage.surgeplay.com/frontfull/50/",
+    "api-url": "https://sessionserver.mojang.com/session/minecraft/profile/%s",
+    "skin-url": "https://visage.surgeplay.com/frontfull/50/%s",
     "skin-dir": "minecraft-map/static/markers/",
     "js-path": "minecraft-map/player-markers.js",
     "js-tmpl-path": "player-markers-tmpl.js",
