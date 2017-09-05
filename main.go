@@ -239,19 +239,19 @@ func NewPlayer(path string) (*Player, error) {
 func (p *Player) SetLocation(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("SetLocation() >> os.Open() >> %v\n", err)
 	}
 	defer f.Close()
 
 	r, err := gzip.NewReader(f)
 	if err != nil {
-		return err
+		return fmt.Errorf("SetLocation() >> gzip.NewReader() >> %v\n", err)
 	}
 	defer r.Close()
 
 	c, err := nbt.Read(r)
 	if err != nil {
-		return err
+		return fmt.Errorf("SetLocation() >> nbt.Read() >> %v\n", err)
 	}
 
 	i := c.Value["Dimension"].(*nbt.Int32)
@@ -295,7 +295,7 @@ func (p *Player) SetUsername() error {
 	if err != nil {
 		username, err := RequestUsername(p.Uuid)
 		if err != nil {
-			return err
+			return fmt.Errorf("SetUsername() >> RequestUsername() >> %v\n", err)
 		}
 		p.Username = username
 		return nil
@@ -304,7 +304,7 @@ func (p *Player) SetUsername() error {
 	if NOW-fs.ModTime().Unix() > CACHETIME {
 		username, err := RequestUsername(p.Uuid)
 		if err != nil {
-			return err
+			return fmt.Errorf("SetUsername() >> RequestUsername() >> %v\n", err)
 		}
 		p.Username = username
 		return nil
@@ -314,7 +314,7 @@ func (p *Player) SetUsername() error {
 	if err != nil {
 		username, err := RequestUsername(p.Uuid)
 		if err != nil {
-			return err
+			return fmt.Errorf("SetUsername() >> RequestUsername() >> %v\n", err)
 		}
 		p.Username = username
 		return nil
@@ -326,17 +326,17 @@ func (p *Player) SetUsername() error {
 func RequestUsername(uuid string) (string, error) {
 	resp, err := http.Get(fmt.Sprintf(APIURL, uuid))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("http.Get() >> %v\n", err)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("ioutil.ReadAll() >> %v\n", err)
 	}
 
 	var mp MinecraftProfile
 	if err := json.Unmarshal(body, &mp); err != nil {
-		return "", err
+		return "", fmt.Errorf("json.Unmarshal() >> %v\n", err)
 	}
 
 	if CACHETIME > 0 {
@@ -351,14 +351,14 @@ func GetSkin(uuid string) error {
 	fs, err := os.Stat(SKINDIR + uuid + ".png")
 	if err != nil {
 		if err := RequestSkin(uuid); err != nil {
-			return err
+			return fmt.Errorf("GetSkin() >> RequestSkin() >> %v\n", err)
 		}
 		return nil
 	}
 
 	if NOW-fs.ModTime().Unix() > CACHETIME {
 		if err := RequestSkin(uuid); err != nil {
-			return err
+			return fmt.Errorf("GetSkin() >> RequestSkin() >> %v\n", err)
 		}
 		return nil
 	}
@@ -368,17 +368,17 @@ func GetSkin(uuid string) error {
 func RequestSkin(uuid string) error {
 	resp, err := http.Get(fmt.Sprintf(SKINURL, uuid))
 	if err != nil {
-		return err
+		return fmt.Errorf("http.Get() >> %v\n", err)
 	}
 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return fmt.Errorf("ioutil.ReadAll() >> %v\n", err)
 	}
 
 	if err := ioutil.WriteFile(SKINDIR+uuid+".png", body, 0666); err != nil {
-		return err
+		return fmt.Errorf("ioutil.WriteFile() >> %v\n", err)
 	}
 
 	return nil
