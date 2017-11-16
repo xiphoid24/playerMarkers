@@ -335,6 +335,7 @@ func RequestUsername(uuid string) (string, error) {
 	}
 
 	var mp MinecraftProfile
+	fmt.Printf("\nbody>>\n%s\n\n", body)
 	if err := json.Unmarshal(body, &mp); err != nil {
 		return "", fmt.Errorf("json.Unmarshal() >> %v\n", err)
 	}
